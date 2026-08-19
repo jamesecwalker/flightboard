@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FlightBoard</title>
+  <link rel="stylesheet" href="board.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23111'/%3E%3Crect x='4' y='6' width='24' height='9' fill='%23f2efe6'/%3E%3Crect x='4' y='17' width='24' height='9' fill='%23f4a300'/%3E%3C/svg%3E">
+</head>
+<body>
+  <main id="stage">
+    <section id="board" class="board" aria-live="polite" aria-label="Flight board"></section>
+    <footer id="chrome" class="chrome">
+      <span id="conn" class="dot off" title="Connection"></span>
+      <span id="status">connecting…</span>
+      <span class="spacer"></span>
+      <span class="replay">
+        <button id="prevBtn" type="button" title="Previous flight (Left arrow)">&#9664;</button>
+        <span id="replayLabel"></span>
+        <button id="nextBtn" type="button" title="Next flight (Right arrow)">&#9654;</button>
+        <button id="liveBtn" type="button" title="Back to latest (Esc)">live</button>
+      </span>
+      <span class="hint">F fullscreen · H hide · S sound · T test · &#8592;/&#8594; history</span>
+    </footer>
+  </main>
+  <div id="unlock" class="unlock" hidden>
+    <button id="unlockBtn" type="button">Tap to enable the click-clack</button>
+  </div>
+  <script src="board.js"></script>
+</body>
+</html>

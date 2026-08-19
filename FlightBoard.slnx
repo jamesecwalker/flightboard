@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FlightBoard.Core/FlightBoard.Core.csproj" />
+    <Project Path="src/FlightBoard.Host/FlightBoard.Host.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FlightBoard.Tests/FlightBoard.Tests.csproj" />
+  </Folder>
+</Solution>

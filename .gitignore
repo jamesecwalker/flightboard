@@ -1,0 +1,17 @@
+bin/
+obj/
+publish/
+data/
+*.db
+*.db-shm
+*.db-wal
+.vs/
+.idea/
+*.user
+*.suo
+TestResults/
+# keep small sample recordings, ignore the big daily ones
+fixtures/live-*.jsonl
+!fixtures/sample-*.jsonl
+# personal settings: home coordinates, live source
+src/FlightBoard.Host/appsettings.Local.json
