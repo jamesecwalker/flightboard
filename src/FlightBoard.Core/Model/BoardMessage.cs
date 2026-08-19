@@ -19,7 +19,8 @@ public sealed record BoardMessage(
     string? IdleLine1 = null,
     string? IdleLine2 = null,
     string? IdleLine3 = null,
-    bool IsDeparture = false)
+    bool IsDeparture = false,
+    int QueuedBehind = 0)
 {
     public static BoardMessage Idle(DateTimeOffset now, string line1, string? line2 = null, string? line3 = null) =>
         new("", "", "", null, null, null, now, IsIdle: true, IdleLine1: line1, IdleLine2: line2, IdleLine3: line3);

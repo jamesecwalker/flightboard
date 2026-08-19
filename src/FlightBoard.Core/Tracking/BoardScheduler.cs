@@ -32,8 +32,11 @@ public sealed class BoardScheduler
             .Where(IsEligible)
             .OrderBy(f => f.TimeToCpaSeconds)
             .ToList();
-        // Candidates for the board: eligible and not already shown (the shown one is tracked separately).
-        var waiting = eligible.Where(f => !f.WasShown).ToList();
+        // Candidates for the board: eligible and not already shown. Exciting aircraft first, then soonest.
+        var waiting = eligible.Where(f => !f.WasShown)
+            .OrderByDescending(Priority)
+            .ThenBy(f => f.TimeToCpaSeconds)
+            .ToList();
 
         if (Shown is not null)
         {
@@ -43,6 +46,9 @@ public sealed class BoardScheduler
 
             if (current is not null)
             {
+                // An exciting aircraft jumps the queue even while an ordinary one is still inbound.
+                if (waiting.Count > 0 && Priority(waiting[0]) > Priority(current) && Priority(waiting[0]) > 0)
+                    return Show(waiting[0], now);
                 // Still inbound: it keeps the board. Passed overhead: keep it through the hold unless someone is waiting.
                 var passedOverhead = !double.IsNaN(current.TimeToCpaSeconds) && current.TimeToCpaSeconds <= 0;
                 if (!passedOverhead || waiting.Count == 0) return BoardDecision.None;
@@ -76,6 +82,20 @@ public sealed class BoardScheduler
         IsIdle = flight is null;
         if (flight is null) LastIdleFrameAt = now;
     }
+
+    /// <summary>Queue-jumping weight: only accent-worthy interest counts, and more of it beats less.</summary>
+    private static int Priority(TrackedFlight f) => f.InterestScore >= Interest.InterestTag.AccentThreshold ? f.InterestScore : 0;
+
+    /// <summary>
+    /// Aircraft (other than the one shown) predicted to come overhead within <paramref name="withinSeconds"/>:
+    /// inside their corridor, passing the approach filter, not yet shown. Drives the "+N" on the board.
+    /// </summary>
+    public static int QueuedCount(IEnumerable<TrackedFlight> flights, TrackerOptions o, string? shownHex, double withinSeconds) =>
+        flights.Count(f => f.Hex != shownHex && !f.WasShown
+                           && f.Phase is FlightPhase.Idle or FlightPhase.Approaching or FlightPhase.Overhead
+                           && !double.IsNaN(f.TimeToCpaSeconds) && f.TimeToCpaSeconds > 0 && f.TimeToCpaSeconds <= withinSeconds
+                           && !double.IsNaN(f.CpaDistanceMetres) && f.CpaDistanceMetres <= (double.IsNaN(f.CorridorMetres) ? o.CorridorMetres : f.CorridorMetres)
+                           && f.LastRejectReason is null && f.LastSample is not null && !f.LastSample.OnGround);
 
     /// <summary>The next thing coming, for the idle "NEXT ... IN N MIN" line.</summary>
     public static TrackedFlight? NextUp(IEnumerable<TrackedFlight> flights, TrackerOptions o) =>

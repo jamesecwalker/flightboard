@@ -107,7 +107,7 @@ api.MapGet("/state", (Engine e) =>
         {
             f.Hex, f.Callsign, f.Registration, f.Type, f.Phase, f.Squawk,
             tCpa = Num(f.TimeToCpaSeconds), dCpa = Num(f.CpaDistanceMetres), dNow = Num(f.DistanceNowMetres),
-            corridor = Num(f.CorridorMetres), elev = Num(f.ElevationAtCpaDeg),
+            corridor = Num(f.CorridorMetres), elev = Num(f.ElevationAtCpaDeg), f.InterestScore, f.WasShown,
             alt = f.LastSample?.AltBaroFt, gs = f.LastSample?.GroundSpeedKt, track = f.LastSample?.TrackDeg, rate = f.LastSample?.BaroRateFpm,
             lat = f.LastSample?.Lat, lon = f.LastSample?.Lon, reject = f.LastRejectReason, f.WentAround,
         }),

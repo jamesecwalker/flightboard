@@ -160,4 +160,25 @@ public class FrameLayoutTests
     [InlineData(null, null)]
     public void Type_codes_get_friendly_names(string? input, string? expected) =>
         Assert.Equal(expected, new BoardOptions().DisplayType(input));
+
+    [Fact]
+    public void Queue_count_shows_bottom_right_and_updates_only_those_tiles()
+    {
+        var caps = BoardCapabilities.Default(4, 22);
+        var a = FrameLayout.Render(Msg() with { QueuedBehind = 2 }, caps);
+        Assert.EndsWith("+2", a.Rows[3]);
+        var b = FrameLayout.Render(Msg(new InterestTag("A380", 50, "x")) with { QueuedBehind = 1 }, caps);
+        Assert.Contains("* A380 *", b.Rows[3]);
+        Assert.EndsWith("+1", b.Rows[3]);
+        var c = FrameLayout.Render(Msg() with { QueuedBehind = 0 }, caps);
+        Assert.Equal(new string(' ', 22), c.Rows[3]);
+        // Changing only the count leaves the other rows identical (so a physical board flips two tiles, not all).
+        var d = FrameLayout.Render(Msg() with { QueuedBehind = 3 }, caps);
+        Assert.Equal(a.Rows[0], d.Rows[0]);
+        Assert.Equal(a.Rows[1], d.Rows[1]);
+        Assert.Equal(a.Rows[2], d.Rows[2]);
+        // Three-row boards put it on the airline row.
+        var e = FrameLayout.Render(Msg() with { QueuedBehind = 2 }, BoardCapabilities.Default(3, 20));
+        Assert.EndsWith("+2", e.Rows[1]);
+    }
 }

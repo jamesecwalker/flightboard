@@ -39,31 +39,32 @@ public static class FrameLayout
         var tag = m.Tag is null ? "" : Decorate(T(m.Tag.Label, caps), caps);
         var from = origin.Length == 0 ? "" : T((m.IsDeparture ? "TO " : "FROM ") + origin, caps);
         var wantAccent = m.Tag?.Accent == true;
+        var plus = m.QueuedBehind > 0 && caps.Charset.Contains('+') ? "+" + m.QueuedBehind : "";
 
         switch (caps.Rows)
         {
             case 1:
-                rows[0] = string.Join(" ", new[] { flight, airline, from, tag }.Where(s => s.Length > 0));
+                rows[0] = string.Join(" ", new[] { flight, airline, from, tag, plus }.Where(s => s.Length > 0));
                 if (wantAccent) Array.Fill(accent[0], true);
                 break;
             case 2:
                 rows[0] = LeftRight(flight, airline, caps.Cols);
-                rows[1] = tag.Length > 0 ? LeftRight(from, tag, caps.Cols) : from;
+                rows[1] = LeftRight(from, tag.Length > 0 ? tag : plus, caps.Cols);
                 if (wantAccent) Array.Fill(accent[1], true);
                 break;
             case 3:
                 rows[0] = LeftRight(flight, tag.Length > 0 ? tag : type, caps.Cols);
-                rows[1] = airline;
+                rows[1] = LeftRight(airline, plus, caps.Cols);
                 rows[2] = from;
                 if (wantAccent) Array.Fill(accent[0], true);
                 break;
             default:
-                // 4+ rows: flight/type, airline, origin, tag. Anything above 4 stays blank (or could carry a title later).
+                // 4+ rows: flight/type, airline, origin, tag (+N queued bottom-right). Anything above 4 stays blank.
                 var top = caps.Rows >= 6 ? 1 : 0; // leave a breathing row on tall boards
                 rows[top + 0] = LeftRight(flight, type, caps.Cols);
                 rows[top + 1] = airline;
                 rows[top + 2] = from;
-                rows[top + 3] = Centre(tag, caps.Cols);
+                rows[top + 3] = LeftRight(Centre(tag, caps.Cols), plus, caps.Cols);
                 if (wantAccent) Array.Fill(accent[top + 3], true);
                 break;
         }

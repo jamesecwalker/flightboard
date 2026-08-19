@@ -59,6 +59,9 @@ public sealed class TrackedFlight
     public int Passes { get; set; }
     /// <summary>Already been on the board for this pass; the scheduler will not show it again (reset by a go-around re-arm).</summary>
     public bool WasShown { get; set; }
+    /// <summary>Best interest score, evaluated when the aircraft enters the prefetch window so the scheduler can let exciting ones jump the queue. 0 = ordinary/unknown.</summary>
+    public int InterestScore { get; set; }
+    public bool InterestEvaluated { get; set; }
     /// <summary>Lowest barometric altitude seen while approaching, for go-around detection.</summary>
     public int? MinAltFt { get; set; }
 

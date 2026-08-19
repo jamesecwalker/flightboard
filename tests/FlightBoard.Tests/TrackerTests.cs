@@ -224,4 +224,43 @@ public class TrackerTests
         // The jet must be on the board before it is overhead, not after the Piper's hold has run out.
         Assert.True(shown[1].tCpa > 0, $"jet shown {shown[1].tCpa:0}s relative to overhead");
     }
+
+    [Fact]
+    public void Exciting_aircraft_jumps_the_queue_and_preempts_an_ordinary_inbound()
+    {
+        var (tracker, o) = NewTracker();
+        var scheduler = new BoardScheduler(() => o);
+        var ordinary = new Synthetic.Plane { Hex = "ord001", Callsign = "EZY1" };
+        var raf = new Synthetic.Plane { Hex = "raf001", Callsign = "RRR1", Type = "A400", StartOffsetSeconds = 20 };
+        var shown = new List<(double t, string hex, double tCpa)>();
+        foreach (var poll in Synthetic.Polls([ordinary, raf], 300))
+        {
+            tracker.Ingest(poll);
+            var r = tracker.Get(raf.Hex);
+            if (r is not null && !r.InterestEvaluated) { r.InterestScore = 80; r.InterestEvaluated = true; }   // what PreEvaluateAsync would do
+            var d = scheduler.Decide(tracker.Flights, poll.Timestamp);
+            if (d.Action == BoardAction.Show) shown.Add(((poll.Timestamp - Synthetic.T0).TotalSeconds, d.Flight!.Hex, d.Flight.TimeToCpaSeconds));
+        }
+        Assert.Equal(["ord001", "raf001"], shown.Select(s => s.hex).ToArray());
+        // The RAF flight took the board while the ordinary one was still inbound (after the minimum display time).
+        Assert.InRange(shown[1].t - shown[0].t, o.MinDisplaySeconds, 25);
+        Assert.True(shown[1].tCpa > 0);
+    }
+
+    [Fact]
+    public void Queued_count_reflects_other_inbound_aircraft()
+    {
+        var (tracker, o) = NewTracker();
+        var a = new Synthetic.Plane { Hex = "aaa001", Callsign = "A1" };
+        var b = new Synthetic.Plane { Hex = "bbb001", Callsign = "B1", StartOffsetSeconds = 40 };
+        var c = new Synthetic.Plane { Hex = "ccc001", Callsign = "C1", StartOffsetSeconds = 80 };
+        var far = new Synthetic.Plane { Hex = "far001", Callsign = "F1", LateralOffsetM = 9000 };
+        var max = 0;
+        foreach (var poll in Synthetic.Polls([a, b, c, far], 120))
+        {
+            tracker.Ingest(poll);
+            max = Math.Max(max, BoardScheduler.QueuedCount(tracker.Flights, o, "aaa001", o.PrefetchSeconds));
+        }
+        Assert.Equal(2, max);   // b and c queued behind a; the far one never counts
+    }
 }

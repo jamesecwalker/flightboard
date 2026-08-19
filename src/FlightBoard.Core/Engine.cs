@@ -93,10 +93,10 @@ public sealed class Engine
             LastPollAt = poll.Timestamp;
             var tick = _tracker.Ingest(poll);
 
-            foreach (var f in tick.PrefetchCandidates)
+            foreach (var f in tick.PrefetchCandidates.Concat(tick.NewlyApproaching))
             {
                 if (_prefetched.Add(f.Hex + "|" + f.Callsign))
-                    _ = _enricher.EnrichAsync(f.Hex, f.Callsign, ct); // warm the cache; result is picked up at show time
+                    _ = PreEvaluateAsync(f, poll.Timestamp, ct); // warm the cache and score interest so the scheduler can prioritise
             }
             if (_prefetched.Count > 500) _prefetched.Clear();
 
@@ -108,6 +108,9 @@ public sealed class Engine
                     break;
                 case BoardAction.Idle:
                     await ShowIdleAsync(poll.Timestamp, ct);
+                    break;
+                case BoardAction.None:
+                    await RefreshQueueCountAsync(poll.Timestamp, ct);
                     break;
             }
         }
@@ -136,7 +139,10 @@ public sealed class Engine
         }
 
         var interest = _interest.Evaluate(new InterestContext(f, enriched, _sightings, now, Home, _interestOptions));
-        var message = MessageBuilder.ForFlight(f, enriched, interest, _board, now, isDeparture);
+        f.InterestScore = interest.Best?.Score ?? 0;
+        f.InterestEvaluated = true;
+        var queued = BoardScheduler.QueuedCount(_tracker.Flights, _trackerOptions(), f.Hex, _trackerOptions().PrefetchSeconds);
+        var message = MessageBuilder.ForFlight(f, enriched, interest, _board, now, isDeparture) with { QueuedBehind = queued };
 
         _log.LogInformation("BOARD: {Flight} {Airline} {Dir} {Origin} [{Tag}] ({Hex} {Type} alt {Alt}ft, overhead in {T:0}s)",
             message.Flight, message.Airline, isDeparture ? "to" : "from", message.Origin, interest.Best?.Label ?? "-", f.Hex, f.Type, f.LastSample?.AltBaroFt, f.TimeToCpaSeconds);
@@ -150,6 +156,33 @@ public sealed class Engine
         catch (Exception ex) { _log.LogWarning(ex, "Could not record sighting"); }
 
         await PublishAsync(message, FrameKind.Normal, ct);
+    }
+
+    /// <summary>Enrich and score a flight ahead of time so exciting ones can jump the queue. Errors are swallowed; the show path re-evaluates anyway.</summary>
+    private async Task PreEvaluateAsync(TrackedFlight f, DateTimeOffset now, CancellationToken ct)
+    {
+        try
+        {
+            var enriched = await _enricher.EnrichAsync(f.Hex, f.Callsign, ct);
+            var interest = _interest.Evaluate(new InterestContext(f, enriched, _sightings, now, Home, _interestOptions));
+            f.InterestScore = interest.Best?.Score ?? 0;
+            f.InterestEvaluated = true;
+            if (f.InterestScore >= InterestTag.AccentThreshold)
+                _log.LogInformation("Priority inbound: {Flight} [{Tag}]", f, interest.Best!.Label);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.LogDebug(ex, "Pre-evaluation failed for {Flight}", f);
+        }
+    }
+
+    /// <summary>Keep the "+N" on a displayed flight honest as other aircraft join or leave the queue. Only the changed tiles flip.</summary>
+    private async Task RefreshQueueCountAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        if (Current is null || Current.IsIdle || _scheduler.Shown is null) return;
+        var queued = BoardScheduler.QueuedCount(_tracker.Flights, _trackerOptions(), _scheduler.Shown.Hex, _trackerOptions().PrefetchSeconds);
+        if (queued == Current.QueuedBehind) return;
+        await PublishAsync(Current with { QueuedBehind = queued }, FrameKind.Normal, ct);
     }
 
     private async Task ShowIdleAsync(DateTimeOffset now, CancellationToken ct)
