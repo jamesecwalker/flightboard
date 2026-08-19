@@ -181,4 +181,24 @@ public class FrameLayoutTests
         var e = FrameLayout.Render(Msg() with { QueuedBehind = 2 }, BoardCapabilities.Default(3, 20));
         Assert.EndsWith("+2", e.Rows[1]);
     }
+
+    [Fact]
+    public void Low_alert_sits_bottom_left_with_amber_and_coexists_with_tag_and_queue()
+    {
+        var caps = BoardCapabilities.Default(4, 22);
+        var f = FrameLayout.Render(Msg() with { AltitudeFt = 1300, IsLow = true }, caps);
+        Assert.StartsWith("LOW 1300FT", f.Rows[3]);
+        Assert.NotNull(f.Accent);
+        Assert.True(f.Accent![3][0] && f.Accent[3][9]);
+        Assert.False(f.Accent[3][10]);
+
+        var g = FrameLayout.Render(Msg(new InterestTag("HELICOPTER", 50, "x")) with { AltitudeFt = 1300, IsLow = true, QueuedBehind = 2 }, caps);
+        Assert.StartsWith("LOW", g.Rows[3]);                 // shrinks to fit beside the centred tag
+        Assert.Contains("* HELICOPTER *", g.Rows[3]);
+        Assert.EndsWith("+2", g.Rows[3]);
+        Assert.Equal(22, g.Rows[3].Length);
+
+        var h = FrameLayout.Render(Msg() with { AltitudeFt = 5500, IsLow = false }, caps);
+        Assert.Equal(new string(' ', 22), h.Rows[3]);
+    }
 }

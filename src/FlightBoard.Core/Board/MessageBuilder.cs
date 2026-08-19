@@ -23,6 +23,9 @@ public sealed class BoardOptions
     /// </summary>
     public bool ShowDepartures { get; set; } = true;
 
+    /// <summary>Aircraft below this (barometric feet) get the amber "LOW" alert. Arrivals here are usually 4,500-7,000 ft; helicopters and GA are 1-2,000.</summary>
+    public int LowAltitudeFt { get; set; } = 2500;
+
     /// <summary>ICAO type designator → what the board shows. Anything not listed shows the raw code (A320, B738...).</summary>
     public Dictionary<string, string> TypeDisplayNames { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -76,6 +79,7 @@ public static class MessageBuilder
 {
     public static BoardMessage ForFlight(TrackedFlight f, Enriched e, InterestResult interest, BoardOptions o, DateTimeOffset now, bool isDeparture = false)
     {
+        var altFt = f.LastSample?.AltBaroFt;
         var callsign = f.Callsign ?? e.Callsign;
         // "U2 8123" is what people know from a boarding pass; but alphanumeric callsigns (AUR2LG, RYR3PW) have no
         // meaningful IATA form, so only swap when the numeric part is purely digits.
@@ -95,7 +99,9 @@ public static class MessageBuilder
             Type: type,
             Tag: interest.Best,
             ShownAt: now,
-            IsDeparture: isDeparture);
+            IsDeparture: isDeparture,
+            AltitudeFt: altFt,
+            IsLow: altFt is { } a && a < o.LowAltitudeFt);
     }
 
     public static BoardMessage Idle(BoardOptions o, DateTimeOffset now, TrackedFlight? next, int countToday)

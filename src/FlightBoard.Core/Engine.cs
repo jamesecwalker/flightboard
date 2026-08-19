@@ -230,7 +230,8 @@ public sealed class Engine
         {
             var now = DateTimeOffset.UtcNow;
             var message = new BoardMessage(s.Flight ?? s.Callsign ?? s.Registration ?? s.Hex.ToUpperInvariant(), s.AirlineName ?? "", s.OriginName ?? "",
-                s.Registration, _board.DisplayType(s.Type), TagFromCsv(s.Tags), now, IsDeparture: s.IsDeparture);
+                s.Registration, _board.DisplayType(s.Type), TagFromCsv(s.Tags), now, IsDeparture: s.IsDeparture,
+                AltitudeFt: s.AltFt, IsLow: s.AltFt is { } alt && alt < _board.LowAltitudeFt);
             var fake = new TrackedFlight { Hex = "replay-" + s.Id, Callsign = s.Callsign, Phase = FlightPhase.Overhead, PhaseEnteredAt = now };
             _scheduler.MarkShown(fake, now);
             Current = message;

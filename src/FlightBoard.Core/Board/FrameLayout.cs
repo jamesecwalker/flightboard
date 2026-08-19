@@ -40,32 +40,36 @@ public static class FrameLayout
         var from = origin.Length == 0 ? "" : T((m.IsDeparture ? "TO " : "FROM ") + origin, caps);
         var wantAccent = m.Tag?.Accent == true;
         var plus = m.QueuedBehind > 0 && caps.Charset.Contains('+') ? "+" + m.QueuedBehind : "";
+        var low = m.IsLow ? (m.AltitudeFt is { } a ? $"LOW {a}FT" : "LOW") : "";
 
         switch (caps.Rows)
         {
             case 1:
-                rows[0] = string.Join(" ", new[] { flight, airline, from, tag, plus }.Where(s => s.Length > 0));
+                rows[0] = string.Join(" ", new[] { flight, airline, from, tag, low.Length > 0 ? "LOW" : "", plus }.Where(s => s.Length > 0));
                 if (wantAccent) Array.Fill(accent[0], true);
                 break;
             case 2:
-                rows[0] = LeftRight(flight, airline, caps.Cols);
+                rows[0] = LeftRight(flight, low.Length > 0 ? "LOW" : airline, caps.Cols);
                 rows[1] = LeftRight(from, tag.Length > 0 ? tag : plus, caps.Cols);
                 if (wantAccent) Array.Fill(accent[1], true);
+                if (low.Length > 0) MarkRange(accent[0], caps.Cols - 3, 3, caps.Cols);
                 break;
             case 3:
                 rows[0] = LeftRight(flight, tag.Length > 0 ? tag : type, caps.Cols);
                 rows[1] = LeftRight(airline, plus, caps.Cols);
-                rows[2] = from;
+                rows[2] = LeftRight(from, low.Length > 0 ? "LOW" : "", caps.Cols);
                 if (wantAccent) Array.Fill(accent[0], true);
+                if (low.Length > 0) MarkRange(accent[2], caps.Cols - 3, 3, caps.Cols);
                 break;
             default:
-                // 4+ rows: flight/type, airline, origin, tag (+N queued bottom-right). Anything above 4 stays blank.
+                // 4+ rows: flight/type, airline, origin, then LOW (left) / tag (centre) / +N (right). Anything above 4 stays blank.
                 var top = caps.Rows >= 6 ? 1 : 0; // leave a breathing row on tall boards
                 rows[top + 0] = LeftRight(flight, type, caps.Cols);
                 rows[top + 1] = airline;
                 rows[top + 2] = from;
-                rows[top + 3] = LeftRight(Centre(tag, caps.Cols), plus, caps.Cols);
+                rows[top + 3] = ThreeUp(low, tag, plus, caps.Cols, out var lowLen);
                 if (wantAccent) Array.Fill(accent[top + 3], true);
+                else if (lowLen > 0) MarkRange(accent[top + 3], 0, lowLen, caps.Cols);
                 break;
         }
     }
@@ -78,6 +82,37 @@ public static class FrameLayout
         if (label.Length == 0) return label;
         var deco = "*>-".FirstOrDefault(c => caps.Charset.Contains(c));
         return deco == default ? label : $"{deco} {label} {deco}";
+    }
+
+    /// <summary>left | centred middle | right, shrinking the left ("LOW 1300FT" → "LOW") and dropping the right if they do not fit.</summary>
+    public static string ThreeUp(string left, string middle, string right, int cols, out int leftLen)
+    {
+        if (middle.Length == 0) { leftLen = left.Length; return LeftRight(left, right, cols); }
+        var candidates = new[] { left, left.Length > 3 ? left[..3] : left, "" }.Distinct();
+        foreach (var l in candidates)
+        {
+            var line = Centre(middle, cols);
+            if (l.Length > 0)
+            {
+                if (l.Length + 1 > (cols - middle.Length) / 2) continue;          // would collide with the centred tag
+                line = l + line[l.Length..];
+            }
+            line = line.TrimEnd();
+            if (right.Length > 0)
+            {
+                if (line.Length + 1 + right.Length > cols) { if (l.Length > 0) continue; leftLen = 0; return Fit(line, cols); }
+                line = line + new string(' ', cols - line.Length - right.Length) + right;
+            }
+            leftLen = l.Length;
+            return Fit(line, cols);
+        }
+        leftLen = 0;
+        return Fit(Centre(middle, cols), cols);
+    }
+
+    private static void MarkRange(bool[] row, int start, int length, int cols)
+    {
+        for (var i = Math.Max(0, start); i < Math.Min(cols, start + length); i++) row[i] = true;
     }
 
     public static string LeftRight(string left, string right, int cols)
