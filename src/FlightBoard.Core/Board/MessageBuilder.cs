@@ -7,7 +7,7 @@ namespace FlightBoard.Core.Board;
 
 public sealed class BoardOptions
 {
-    public int Rows { get; set; } = 4;
+    public int Rows { get; set; } = 5;
     public int Cols { get; set; } = 22;
     public string Charset { get; set; } = BoardCapabilities.DefaultCharset;
     public bool Colour { get; set; } = true;

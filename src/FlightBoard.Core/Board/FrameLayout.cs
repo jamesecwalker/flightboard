@@ -61,15 +61,25 @@ public static class FrameLayout
                 if (wantAccent) Array.Fill(accent[0], true);
                 if (low.Length > 0) MarkRange(accent[2], caps.Cols - 3, 3, caps.Cols);
                 break;
+            case 4:
+                // flight/type, airline, origin, then a shared status row: LOW (left) / tag (centre) / +N (right).
+                rows[0] = LeftRight(flight, type, caps.Cols);
+                rows[1] = airline;
+                rows[2] = from;
+                rows[3] = ThreeUp(low, tag, plus, caps.Cols, out var lowLen);
+                if (wantAccent) Array.Fill(accent[3], true);
+                else if (lowLen > 0) MarkRange(accent[3], 0, lowLen, caps.Cols);
+                break;
             default:
-                // 4+ rows: flight/type, airline, origin, then LOW (left) / tag (centre) / +N (right). Anything above 4 stays blank.
-                var top = caps.Rows >= 6 ? 1 : 0; // leave a breathing row on tall boards
+                // 5+ rows: the alert tag gets its own full-width line, LOW / +N sit on a status line beneath it.
+                var top = caps.Rows >= 7 ? 1 : 0; // leave a breathing row on tall boards
                 rows[top + 0] = LeftRight(flight, type, caps.Cols);
                 rows[top + 1] = airline;
                 rows[top + 2] = from;
-                rows[top + 3] = ThreeUp(low, tag, plus, caps.Cols, out var lowLen);
+                rows[top + 3] = Centre(tag, caps.Cols);
+                rows[top + 4] = LeftRight(low, plus, caps.Cols);
                 if (wantAccent) Array.Fill(accent[top + 3], true);
-                else if (lowLen > 0) MarkRange(accent[top + 3], 0, lowLen, caps.Cols);
+                if (low.Length > 0) MarkRange(accent[top + 4], 0, low.Length, caps.Cols);
                 break;
         }
     }

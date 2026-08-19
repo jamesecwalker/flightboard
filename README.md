@@ -10,10 +10,11 @@ core never changes, you add one display adapter.
 
 ```
  ┌────────────────────────┐
- │ BA 2158           B772 │
- │ BRITISH AIRWAYS        │
- │ FROM SAINT GEORGE'S    │
- │      * LONG HAUL *     │
+ │ HLE 21           AW169 │   flight · type
+ │ SPECIALIST AVIATION SE │   airline / operator
+ │                        │   FROM origin (or TO destination)
+ │     * HELICOPTER *     │   interesting-plane tag (amber)
+ │ LOW 1425FT          +2 │   low-altitude alert (amber) · aircraft queued behind
  └────────────────────────┘
 ```
 

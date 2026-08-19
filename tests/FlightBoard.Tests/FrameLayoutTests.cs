@@ -201,4 +201,26 @@ public class FrameLayoutTests
         var h = FrameLayout.Render(Msg() with { AltitudeFt = 5500, IsLow = false }, caps);
         Assert.Equal(new string(' ', 22), h.Rows[3]);
     }
+
+    [Fact]
+    public void Five_row_board_separates_alert_line_from_status_line()
+    {
+        var caps = BoardCapabilities.Default(5, 22);
+        var f = FrameLayout.Render(Msg(new InterestTag("HELICOPTER", 50, "x")) with { AltitudeFt = 1425, IsLow = true, QueuedBehind = 2 }, caps);
+        Assert.Equal(5, f.Rows.Length);
+        Assert.StartsWith("U2 8123", f.Rows[0]);
+        Assert.StartsWith("EASYJET", f.Rows[1]);
+        Assert.StartsWith("FROM ALICANTE", f.Rows[2]);
+        Assert.Equal("    * HELICOPTER *    ", f.Rows[3]);
+        Assert.Equal("LOW 1425FT          +2", f.Rows[4]);
+        Assert.NotNull(f.Accent);
+        Assert.All(f.Accent![3], a => Assert.True(a));        // whole tag line amber
+        Assert.True(f.Accent[4][0] && f.Accent[4][9]);        // LOW 1425FT amber
+        Assert.False(f.Accent[4][10] || f.Accent[4][21]);     // +2 not
+
+        var plain = FrameLayout.Render(Msg(), caps);
+        Assert.Null(plain.Accent);
+        Assert.Equal(new string(' ', 22), plain.Rows[3]);
+        Assert.Equal(new string(' ', 22), plain.Rows[4]);
+    }
 }
