@@ -9,8 +9,10 @@ public sealed record BoardDecision(BoardAction Action, TrackedFlight? Flight)
 
 /// <summary>
 /// Decides what is on the board given the tracker's view. Handles the normal Gatwick case of
-/// arrivals 90-120 s apart: never pre-empt a shown flight with a later one, but the moment the
-/// shown flight is gone show the next if it is already inside the lead window, else go idle.
+/// arrivals 90-120 s apart: never pre-empt a flight that is still inbound, but once the shown
+/// flight has gone overhead (or is lost) hand over to the next one that is already inside the
+/// lead window - without sitting through the hold period - else go idle after the hold.
+/// A flight goes on the board once per pass; replays and demo frames do not make it eligible again.
 /// </summary>
 public sealed class BoardScheduler
 {
@@ -30,14 +32,24 @@ public sealed class BoardScheduler
             .Where(IsEligible)
             .OrderBy(f => f.TimeToCpaSeconds)
             .ToList();
+        // Candidates for the board: eligible and not already shown (the shown one is tracked separately).
+        var waiting = eligible.Where(f => !f.WasShown).ToList();
 
         if (Shown is not null)
         {
-            var stillEligible = eligible.Any(f => f.Hex == Shown.Hex);
+            var current = eligible.FirstOrDefault(f => f.Hex == Shown.Hex);
             var onBoardFor = (now - ShownAt).TotalSeconds;
-            if (stillEligible || onBoardFor < o.MinDisplaySeconds) return BoardDecision.None;
+            if (onBoardFor < o.MinDisplaySeconds) return BoardDecision.None;
 
-            var next = eligible.FirstOrDefault(f => f.Hex != Shown.Hex);
+            if (current is not null)
+            {
+                // Still inbound: it keeps the board. Passed overhead: keep it through the hold unless someone is waiting.
+                var passedOverhead = !double.IsNaN(current.TimeToCpaSeconds) && current.TimeToCpaSeconds <= 0;
+                if (!passedOverhead || waiting.Count == 0) return BoardDecision.None;
+                return Show(waiting[0], now);
+            }
+
+            var next = waiting.FirstOrDefault();
             if (next is not null) return Show(next, now);
             Shown = null;
             IsIdle = true;
@@ -45,7 +57,7 @@ public sealed class BoardScheduler
             return new BoardDecision(BoardAction.Idle, null);
         }
 
-        var head = eligible.FirstOrDefault();
+        var head = waiting.FirstOrDefault();
         if (head is not null) return Show(head, now);
 
         if (IsIdle && (now - LastIdleFrameAt).TotalSeconds >= o.IdleRefreshSeconds)
@@ -81,6 +93,7 @@ public sealed class BoardScheduler
         Shown = f;
         ShownAt = now;
         IsIdle = false;
+        f.WasShown = true;
         return new BoardDecision(BoardAction.Show, f);
     }
 }

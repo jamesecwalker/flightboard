@@ -57,6 +57,8 @@ public sealed class TrackedFlight
     /// <summary>Skip the cooldown once so a go-around can trigger the board again on its second approach.</summary>
     public bool RearmPending { get; set; }
     public int Passes { get; set; }
+    /// <summary>Already been on the board for this pass; the scheduler will not show it again (reset by a go-around re-arm).</summary>
+    public bool WasShown { get; set; }
     /// <summary>Lowest barometric altitude seen while approaching, for go-around detection.</summary>
     public int? MinAltFt { get; set; }
 

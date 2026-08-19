@@ -113,9 +113,9 @@ public class TrackerTests
             if (d.Action == BoardAction.Idle) idles++;
         }
         Assert.Equal(["aaaaaa", "bbbbbb"], shown.Select(s => s.hex).ToArray());
-        // B appears on the board only after A has passed (hold elapsed) and, since B is already within lead, straight away.
+        // B appears once A has gone overhead (not after A's hold), since B is already inside the lead window.
         Assert.True(shown[1].t - shown[0].t >= o.MinDisplaySeconds);
-        Assert.True(shown[1].t - shown[0].t <= 80 + o.HoldSeconds + 6);
+        Assert.True(shown[1].t - shown[0].t <= 80 + 6, $"B waited {shown[1].t - shown[0].t}s"); // B enters the window 80 s after A; it must not also wait out A's hold
         Assert.True(idles >= 1);
     }
 
@@ -180,5 +180,48 @@ public class TrackerTests
         Assert.InRange(o.EffectiveCorridorMetres(4500), 3700, 3800);  // 1372 m / tan20 = 3769 m
         Assert.Equal(5000, o.EffectiveCorridorMetres(9000));          // capped
         Assert.Equal(800, new TrackerOptions { CorridorMetres = 800, MinElevationDeg = 0 }.EffectiveCorridorMetres(6000));
+    }
+
+    [Fact]
+    public void A_flight_is_shown_once_even_if_the_board_is_interrupted()
+    {
+        var (tracker, o) = NewTracker();
+        var scheduler = new BoardScheduler(() => o);
+        var plane = new Synthetic.Plane();
+        var shows = 0;
+        var interrupted = false;
+        foreach (var poll in Synthetic.Polls([plane], 200))
+        {
+            tracker.Ingest(poll);
+            var d = scheduler.Decide(tracker.Flights, poll.Timestamp);
+            if (d.Action == BoardAction.Show) shows++;
+            // Simulate a history replay / demo frame taking over the board mid-pass.
+            if (shows == 1 && !interrupted && tracker.Get(plane.Hex)!.TimeToCpaSeconds < 20)
+            {
+                interrupted = true;
+                scheduler.MarkShown(new TrackedFlight { Hex = "replay-1", Phase = FlightPhase.Overhead }, poll.Timestamp);
+            }
+        }
+        Assert.True(interrupted);
+        Assert.Equal(1, shows);
+    }
+
+    [Fact]
+    public void Slow_first_aircraft_hands_over_as_soon_as_it_has_passed_overhead()
+    {
+        var (tracker, o) = NewTracker();
+        var scheduler = new BoardScheduler(() => o);
+        var piper = new Synthetic.Plane { Hex = "piper1", Callsign = "GCIZO", GroundSpeedKt = 100, AltOverHouseFt = 1900 };
+        var jet = new Synthetic.Plane { Hex = "jet001", Callsign = "EZY21VA", StartOffsetSeconds = 70 }; // enters the window ~20 s after the Piper, passes ~20 s after it
+        var shown = new List<(double t, string hex, double tCpa)>();
+        foreach (var poll in Synthetic.Polls([piper, jet], 300))
+        {
+            tracker.Ingest(poll);
+            var d = scheduler.Decide(tracker.Flights, poll.Timestamp);
+            if (d.Action == BoardAction.Show) shown.Add(((poll.Timestamp - Synthetic.T0).TotalSeconds, d.Flight!.Hex, d.Flight.TimeToCpaSeconds));
+        }
+        Assert.Equal(["piper1", "jet001"], shown.Select(s => s.hex).ToArray());
+        // The jet must be on the board before it is overhead, not after the Piper's hold has run out.
+        Assert.True(shown[1].tCpa > 0, $"jet shown {shown[1].tCpa:0}s relative to overhead");
     }
 }

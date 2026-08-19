@@ -78,6 +78,7 @@ public sealed class Tracker
             if (f.Phase == FlightPhase.Cooldown && ((now - f.PhaseEnteredAt).TotalSeconds > o.CooldownSeconds || f.RearmPending))
             {
                 f.RearmPending = false;
+                f.WasShown = false;
                 Enter(f, FlightPhase.Idle, now);
             }
         }
@@ -139,7 +140,7 @@ public sealed class Tracker
                 Enter(f, FlightPhase.Passed, now);
             }
             // Re-arm so the second attempt triggers the board again.
-            if (f.Phase == FlightPhase.Cooldown) { f.RearmPending = false; Enter(f, FlightPhase.Idle, now); }
+            if (f.Phase == FlightPhase.Cooldown) { f.RearmPending = false; f.WasShown = false; Enter(f, FlightPhase.Idle, now); }
         }
 
         switch (f.Phase)
